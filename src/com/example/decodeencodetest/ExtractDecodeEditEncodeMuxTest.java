@@ -574,16 +574,30 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
                         Log.d(TAG, "video extractor: returned buffer of size " + size);
                         Log.d(TAG, "video extractor: returned buffer for time " + presentationTime);
                     }
-                    if (size >= 0) {
+                    // check is track video added to video extractor
+                    int numTracks = mVideoExtractor.getTrackCount();
+                    long durationTime = 0L;
+                    if (numTracks > 0) {
+                        // get media format from video extractor for get video duration
+                        MediaFormat format = mVideoExtractor.getTrackFormat(0);
+                        durationTime = format.getLong(MediaFormat.KEY_DURATION);
+                        // calculate 2 last frames and subtract it from duration time
+                        long presentationDurationOfTwoFrames = 1_000_000 / 30 * 2;
+                        durationTime -= presentationDurationOfTwoFrames;
+                    }
+
+                    // eventsListener.onProcessingProgress(presentationTime, durationTime);
+
+                    if (size >= 0 && presentationTime < durationTime) {
                         codec.queueInputBuffer(
                                 index,
                                 0,
                                 size,
                                 presentationTime,
                                 mVideoExtractor.getSampleFlags());
-                    }
-                    mVideoExtractorDone = !mVideoExtractor.advance();
-                    if (mVideoExtractorDone) {
+
+                        mVideoExtractorDone = !mVideoExtractor.advance();
+                    } else {
                         if (VERBOSE) Log.d(TAG, "video extractor: EOS");
                         codec.queueInputBuffer(
                                 index,
@@ -592,6 +606,7 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
                                 0,
                                 MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                     }
+                   
                     mVideoExtractedFrameCount++;
                     logState();
                     if (size >= 0)
